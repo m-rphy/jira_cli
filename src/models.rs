@@ -1,6 +1,23 @@
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
+
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Action {
+    NavigateToEpicDetail {epic_id: u32},
+    NavigateToStoryDetail { epic_id: u32, story_id: u32 },
+    NavigateToPreviousPage,
+    CreateEpic,
+    UpdateEpicStatus { epic_id: u32 },
+    DeleteEpic { epic_id: u32 },
+    CreateStory {epic_id: u32},
+    UpdateStoryStatus { story_id: u32 },
+    DeleteStory { epic_id: u32, story_id: u32 },
+    Exit,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub enum Status {
     Open,
     InProgress,
@@ -8,11 +25,12 @@ pub enum Status {
     Closed
 }
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Epic {
-    name: String,
-    description: String,
-    status: Status,
-    stories: Vec<i32>
+    pub name: String,
+    pub description: String,
+    pub status: Status,
+    pub stories: Vec<i32>
 }
 
 impl Epic {
@@ -26,10 +44,11 @@ impl Epic {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Story {
-    name: String,
-    description: String,
-    status: Status
+    pub name: String,
+    pub description: String,
+    pub status: Status
 }
 
 impl Story {
@@ -42,7 +61,7 @@ impl Story {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct DBState {
     // This struct represents the entire db state which includes the last_item_id, epics, and stories
     pub last_item_id: u32,

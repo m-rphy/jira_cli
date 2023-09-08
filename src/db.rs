@@ -8,9 +8,9 @@ pub struct JiraDatabase {
 }
 
 impl JiraDatabase {
-    pub new(file_path: String) -> Self {
+    pub fn new(file_path: String) -> Self {
         Self {
-            database: Box::new(JSONFileDatabase { file_path })
+                database: Box::new(JSONFileDatabase { file_path })
         }
     }
 
@@ -21,16 +21,13 @@ impl JiraDatabase {
     pub fn create_epic(&self, epic: Epic) -> Result<u32> {
         let mut parsed = self.database.read_db()?;
 
-        let last_id = parse.last_item_ide;
+        let last_id = parsed.last_item_id;
         let new_id = last_id + 1;
 
         parsed.last_item_id = new_id;
-        parsed.epics.insert(new_id, epic)
-            .with_context(|| format!("Failed to insert epic: {}", &epic))?;
+        parsed.epics.insert(new_id, epic);
 
-        self.database.write_db(&parsed)
-            .with_context(|| format!("Failed to write {} to database", &epic))?;
-                
+        self.database.write_db(&parsed)?;
             
         Ok(new_id)
     }
@@ -38,20 +35,70 @@ impl JiraDatabase {
     pub fn create_story(&self, story: Story, epic_id: u32) -> Result<u32> {
         let mut parsed = self.database.read_db()?;
 
-        let last_id = parse.last_item_ide;
+        let last_id = parsed.last_item_id;
         let new_id = last_id + 1;
 
         parsed.last_item_id = new_id;
-        parsed.stories.insert(new_id, story)
-            .with_context(|| format!("Failed to insert story: {}", &story))?;
+        parsed.stories.insert(new_id, story);
 
-        parsed.epics.get_mut(&epic_id).ok_or_else(|| anyhow!("coundl not find epic in database!"))?.storuies.push(new_id);
+        parsed.epics.get_mut(&epic_id).ok_or_else(|| anyhow!("coundl not find epic in database!"))?.stories.push(new_id);
+
+        self.database.write_db(&parsed)?;
+                
+        Ok(new_id)
+    }
+
+    pub fn delete_epic(&self, story_id: u32, epic_id: u32) -> Result<()> {
+        let mut parsed = self.database.read_db()?;
+
+        for story_id in &parsed.epics.get(&epic_id)
+            .ok_or_else(|| anyhow!("could not find epic in database"))?.stories {
+                parsed.stories.remove(story_id);
+            }
+
+        self.database.write_db(&parsed)?;
+                
+        Ok(())
+    }
+
+    pub fn delete_story(&self, epic: u32, story_id: u32) -> Result<()> {
+        let mut parsed = self.database.read_db()?;
+
+        let epic = parsed.epics.get_mut(&epic_id)
+            .ok_or_else(|| anyhow!("counld not find the epic in database!"))?;
+        
+        let story_index = epic.stories.iter().position(|id| id == &story_id)
+            .ok_or_else(|| anyhow!("story in not found in epic stories vector"))?;
+       
+        epic.stories.remove(&story_id);
+        parsed.stories.remove(&story_id);
 
         self.database.write_db(&parsed)
             .with_context(|| format!("Failed to write {} to database", &epic))?;
                 
-            
-        Ok(new_id)
+        Ok(())
+    }
+
+    pub fn update_epic_status(&self, epic_id: u32, status: Status) -> Result<()> {
+        let mut parsed = self.database.read_db()?;
+
+        parsed.stories.get_mut(&epic_id)
+            .ok_or_else(|| anyhow!("could not find epic in database!"))?.status = status;
+        
+        self.database.write_db(&parsed)?;
+
+        Ok(())
+    }
+
+    pub fn update_story_status(&self, story_id: u32, status: Status) -> Result<()> {
+        let mut parsed = self.database.read_db()?;
+
+        parsed.stories.get_mut(&story_id)
+            .ok_or_else(|| anyhow!("could not find story in database!"))?.status = status;
+        
+        self.database.write_db(&parsed)?;
+
+        Ok(())
     }
 }
 
@@ -66,12 +113,8 @@ struct JSONFileDatabase {
 
 impl Database for JSONFileDatabase {
     fn read_db(&self) -> Result<DBState> {
-        let db_content = fs::read_to_string(&self.file_path)
-            .with_context(|| format!("Failed to read database from {}", &self.file_path))?;
-
-        let parsed: DBState = serde_json::from_str(&db_content)
-            .with_context(|| format!("Failed to parse JSON from {}", &self.file_path))?;
-
+        let db_content = fs::read_to_string(&self.file_path)?;
+        let parsed: DBState = serde_json::from_str(&db_content)?;
         Ok(parsed)
     }
 
